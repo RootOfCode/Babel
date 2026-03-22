@@ -11,7 +11,7 @@
 (asdf:defsystem :babel-world
   :description "BABEL — 3D Wireframe World Compiler driven by layered Lisp macros"
   :version "0.1.0"
-  :author "Bruno
+  :author "Bruno"
   :license "MIT"
   :depends-on (:sdl2 :cl-opengl :cl-glu :alexandria :bordeaux-threads)
   :serial t
