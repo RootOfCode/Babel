@@ -306,10 +306,13 @@
 
 (defun run-world (fn)
   "Evaluate FN (a thunk) as the current world and mark geometry dirty.
-   The previous world-fn is pushed onto *world-journal* for undo."
-  (when *world-fn*
-    (journal-push! *world-fn*))
-  (setf *world-fn*       fn
-        *geometry-dirty* t
-        *current-scene*  -1)
+   The previous world-fn is pushed onto *world-journal* for undo.
+   Thread-safe: acquires *world-mutex* before swapping *world-fn* so the
+   renderer thread never sees a half-updated state."
+  (bt:with-lock-held (*world-mutex*)
+    (when *world-fn*
+      (journal-push! *world-fn*))
+    (setf *world-fn*       fn
+          *geometry-dirty* t
+          *current-scene*  -1))
   (format t "~&[BABEL] Custom world installed.~%"))

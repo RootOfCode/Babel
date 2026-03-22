@@ -190,3 +190,254 @@ and are offset by the current buffer size before insertion."
               (b (+ (* (mod (1+ i) ms) ns) j)))
           (push (list a b) edges))))
     (emit-edges (coerce verts 'list) (nreverse edges))))
+
+;;; ─── Wall-segment emitter ────────────────────────────────────────────────────
+
+(defun emit-wall-segment-edges (x0 z0 x1 z1 y-base height thickness)
+  "Emit a rectangular wall panel whose base runs from (X0,Z0) to (X1,Z1),
+   rising from Y-BASE to Y-BASE+HEIGHT with the given THICKNESS.
+   The thickness is extruded perpendicular to the wall direction in the XZ plane."
+  (let* ((dx  (- (float x1) (float x0)))
+         (dz  (- (float z1) (float z0)))
+         (len (max 0.001 (sqrt (+ (* dx dx) (* dz dz)))))
+         ;; Inward-perpendicular unit vector
+         (px  (/ (- dz) len))
+         (pz  (/ dx  len))
+         (ht  (/ (float thickness) 2.0))
+         (y0  (float y-base))
+         (y1  (+ y0 (float height)))
+         (ax0 (float x0)) (az0 (float z0))
+         (ax1 (float x1)) (az1 (float z1)))
+    (emit-edges
+     (list
+      ;; Bottom face — 4 corners
+      (list (+ ax0 (* px ht)) y0 (+ az0 (* pz ht)))   ; 0 near-start-bottom
+      (list (+ ax1 (* px ht)) y0 (+ az1 (* pz ht)))   ; 1 near-end-bottom
+      (list (- ax1 (* px ht)) y0 (- az1 (* pz ht)))   ; 2 far-end-bottom
+      (list (- ax0 (* px ht)) y0 (- az0 (* pz ht)))   ; 3 far-start-bottom
+      ;; Top face — 4 corners
+      (list (+ ax0 (* px ht)) y1 (+ az0 (* pz ht)))   ; 4 near-start-top
+      (list (+ ax1 (* px ht)) y1 (+ az1 (* pz ht)))   ; 5 near-end-top
+      (list (- ax1 (* px ht)) y1 (- az1 (* pz ht)))   ; 6 far-end-top
+      (list (- ax0 (* px ht)) y1 (- az0 (* pz ht))))  ; 7 far-start-top
+     '((0 1)(1 2)(2 3)(3 0)                            ; bottom ring
+       (4 5)(5 6)(6 7)(7 4)                            ; top ring
+       (0 4)(1 5)(2 6)(3 7)                            ; verticals
+       (0 2)(1 3)))))                                  ; bottom diagonals (cross-bracing)
+
+;;; ─── Hemisphere emitter ──────────────────────────────────────────────────────
+
+(defun emit-hemisphere-edges (x y z r steps)
+  "Emit a wireframe hemisphere (upper half-sphere) sitting ON the plane y=Y.
+   Phi runs from 0 (top/north-pole) to pi/2 (equator) only.
+   The equator ring at y is the base — no bottom cap is drawn."
+  (let* ((lat-steps  steps)
+         (lon-steps  (* 2 steps))
+         (vertices   '())
+         (edges      '()))
+    ;; Build vertex grid: phi 0 → pi/2  (top pole → equator)
+    (dotimes (i (1+ lat-steps))
+      (let ((phi (* (/ pi 2.0) (/ i lat-steps))))   ; 0 … π/2
+        (dotimes (j lon-steps)
+          (let ((theta (* 2.0 pi (/ j lon-steps))))
+            (push (list (+ x (* r (sin phi) (cos theta)))
+                        (+ y (* r (cos phi)))        ; y=y+r at pole, y=y at equator
+                        (+ z (* r (sin phi) (sin theta))))
+                  vertices)))))
+    (setf vertices (nreverse (coerce vertices 'vector)))
+    ;; Latitude rings
+    (dotimes (i (1+ lat-steps))
+      (dotimes (j lon-steps)
+        (let* ((a (+ (* i lon-steps) j))
+               (b (+ (* i lon-steps) (mod (1+ j) lon-steps))))
+          (push (list a b) edges))))
+    ;; Longitude lines
+    (dotimes (j lon-steps)
+      (dotimes (i lat-steps)
+        (let* ((a (+ (* i lon-steps) j))
+               (b (+ (* (1+ i) lon-steps) j)))
+          (push (list a b) edges))))
+    (emit-edges (coerce vertices 'list) (nreverse edges))))
+
+;;; ─── Cylinder ────────────────────────────────────────────────────────────────
+
+(defun emit-cylinder-edges (x y z r h steps)
+  "Vertical cylinder centred at X Y Z, radius R, height H, STEPS facets.
+   Emits bottom ring, top ring, and vertical lines. No caps."
+  (let ((verts '()) (edges '()) (n steps))
+    (dotimes (i n)
+      (let* ((theta (* 2.0 pi (/ i n)))
+             (px (+ x (* r (cos theta))))
+             (pz (+ z (* r (sin theta)))))
+        (push (list px (float y)       pz) verts)   ; bottom ring: 0..n-1
+        (push (list px (+ y (float h)) pz) verts))) ; top ring:    n..2n-1
+    (setf verts (nreverse verts))
+    ;; Bottom ring
+    (dotimes (i n)
+      (push (list (* 2 i) (* 2 (mod (1+ i) n))) edges))
+    ;; Top ring
+    (dotimes (i n)
+      (push (list (1+ (* 2 i)) (1+ (* 2 (mod (1+ i) n)))) edges))
+    ;; Verticals
+    (dotimes (i n)
+      (push (list (* 2 i) (1+ (* 2 i))) edges))
+    (emit-edges verts (nreverse edges))))
+
+;;; ─── Pyramid ─────────────────────────────────────────────────────────────────
+
+(defun emit-pyramid-edges (x y z base-w base-d height)
+  "Square-base pyramid. Base centred at X Y Z, apex at X Y+HEIGHT Z."
+  (let* ((hw (/ (float base-w) 2.0))
+         (hd (/ (float base-d) 2.0))
+         (by (float y))
+         (ty (+ by (float height))))
+    (emit-edges
+     (list (list (- x hw) by (- z hd))   ; 0 base SW
+           (list (+ x hw) by (- z hd))   ; 1 base SE
+           (list (+ x hw) by (+ z hd))   ; 2 base NE
+           (list (- x hw) by (+ z hd))   ; 3 base NW
+           (list (float x) ty (float z))) ; 4 apex
+     '((0 1)(1 2)(2 3)(3 0)              ; base ring
+       (0 4)(1 4)(2 4)(3 4)))))          ; lateral edges
+
+;;; ─── Barrel vault ────────────────────────────────────────────────────────────
+
+(defun emit-vault-edges (x y z span length steps)
+  "Barrel vault: a semicircular arch extruded LENGTH along Z.
+   Centre of the vault runs from (X Y Z) to (X Y Z+LENGTH).
+   SPAN is the total width (chord), rise = span/2."
+  (let* ((r     (/ (float span) 2.0))
+         (verts '())
+         (edges '())
+         (n     steps)
+         (nz    (max 2 (round (/ (float length) r)))))  ; arch count along length
+    ;; Build vertex grid: n+1 points per arch × nz+1 arches
+    (dotimes (iz (1+ nz))
+      (let ((pz (+ z (* (float length) (/ iz nz)))))
+        (dotimes (ia (1+ n))
+          (let* ((theta (+ (* pi (/ ia n))))      ; π → 2π : left→right overhead
+                 (px    (+ x (* r (cos theta))))
+                 (py    (+ y r (* r (sin (- theta pi))))))
+            (push (list px py pz) verts)))))
+    (setf verts (nreverse verts))
+    (let ((row (1+ n)))
+      ;; Arch ribs (along theta)
+      (dotimes (iz (1+ nz))
+        (dotimes (ia n)
+          (push (list (+ (* iz row) ia)
+                      (+ (* iz row) ia 1)) edges)))
+      ;; Longitudinal lines (along Z)
+      (dotimes (ia (1+ n))
+        (dotimes (iz nz)
+          (push (list (+ (* iz row) ia)
+                      (+ (* (1+ iz) row) ia)) edges))))
+    (emit-edges verts (nreverse edges))))
+
+;;; ─── Staircase ───────────────────────────────────────────────────────────────
+
+(defun emit-staircase-edges (x y z width n-steps step-h step-d)
+  "Staircase rising along +Z. N-STEPS steps, each STEP-H high and STEP-D deep.
+   Width runs along X, centred on X. Bottom-front corner at X Y Z."
+  (let ((hw  (/ (float width) 2.0))
+        (verts '()) (edges '()))
+    (dotimes (i (1+ n-steps))
+      (let ((sy (+ y (* i (float step-h))))
+            (sz (+ z (* i (float step-d)))))
+        ;; Left and right corners of this step's front edge
+        (push (list (- x hw) sy sz) verts)   ; 2i   left
+        (push (list (+ x hw) sy sz) verts))) ; 2i+1 right
+    (setf verts (nreverse verts))
+    ;; Horizontal treads (front edge of each step)
+    (dotimes (i (1+ n-steps))
+      (push (list (* 2 i) (1+ (* 2 i))) edges))
+    ;; Left and right side risers + nosing lines
+    (dotimes (i n-steps)
+      ;; Riser left
+      (push (list (* 2 i) (* 2 (1+ i))) edges)
+      ;; Riser right
+      (push (list (1+ (* 2 i)) (1+ (* 2 (1+ i)))) edges))
+    ;; Top landing edge
+    (push (list (* 2 n-steps) (1+ (* 2 n-steps))) edges)
+    (emit-edges verts (nreverse edges))))
+
+;;; ─── Spire ───────────────────────────────────────────────────────────────────
+
+(defun emit-spire-edges (x y z height base-r sides)
+  "Polygonal spire. Base polygon (SIDES faces, radius BASE-R) at Y,
+   apex at Y+HEIGHT. Base ring + lateral edges only — looks best with
+   sides 4 (square) or 8 (octagonal)."
+  (let ((verts '()) (edges '()) (n (max 3 sides)))
+    (dotimes (i n)
+      (let* ((theta (* 2.0 pi (/ i n)))
+             (px    (+ x (* (float base-r) (cos theta))))
+             (pz    (+ z (* (float base-r) (sin theta)))))
+        (push (list px (float y) pz) verts)))
+    ;; Apex
+    (push (list (float x) (+ y (float height)) (float z)) verts)
+    (setf verts (nreverse verts))
+    ;; Base ring
+    (dotimes (i n)
+      (push (list i (mod (1+ i) n)) edges))
+    ;; Lateral edges to apex (index n)
+    (dotimes (i n)
+      (push (list i n) edges))
+    (emit-edges verts (nreverse edges))))
+
+;;; ─── Flying buttress ─────────────────────────────────────────────────────────
+
+(defun emit-flying-buttress-edges (wall-x wall-y wall-z
+                                   pier-x pier-y pier-z
+                                   thickness)
+  "A flying buttress: a shallow arch leaping from (WALL-X WALL-Y WALL-Z)
+   to a free-standing pier at (PIER-X PIER-Y PIER-Z). THICKNESS is the
+   depth of the arch (extruded along the wall face)."
+  (let* ((steps 8)
+         (dx    (- (float pier-x) (float wall-x)))
+         (dy    (- (float pier-y) (float wall-y)))
+         (dz    (- (float pier-z) (float wall-z)))
+         ;; Rise: midpoint lifted by half the horizontal distance
+         (hdist (sqrt (+ (* dx dx) (* dz dz))))
+         (rise  (* 0.55 hdist))
+         (verts '()) (edges '()))
+    ;; Front arc
+    (dotimes (i (1+ steps))
+      (let* ((t1  (/ i steps))
+             ;; Quadratic Bezier: start → lifted midpoint → end
+             (mt  (- 1.0 t1))
+             (mx  (+ (float wall-x) (* 0.5 dx)))
+             (my  (+ (float wall-y) (* 0.5 dy) rise))
+             (mz  (+ (float wall-z) (* 0.5 dz)))
+             (px  (+ (* mt mt (float wall-x)) (* 2.0 mt t1 mx) (* t1 t1 (float pier-x))))
+             (py  (+ (* mt mt (float wall-y)) (* 2.0 mt t1 my) (* t1 t1 (float pier-y))))
+             (pz  (+ (* mt mt (float wall-z)) (* 2.0 mt t1 mz) (* t1 t1 (float pier-z)))))
+        (push (list px py pz) verts)))
+    ;; Back arc — offset by THICKNESS along the perpendicular
+    ;; Perpendicular direction: rotate (dx,dz) by 90°, normalise
+    (let* ((perp-len (max 0.001 hdist))
+           (ox  (/ (- dz) perp-len))
+           (oz  (/ dx     perp-len)))
+      (dotimes (i (1+ steps))
+        (let* ((t1 (/ i steps))
+               (mt (- 1.0 t1))
+               (mx  (+ (float wall-x) (* 0.5 dx)))
+               (my  (+ (float wall-y) (* 0.5 dy) rise))
+               (mz  (+ (float wall-z) (* 0.5 dz)))
+               (px  (+ (* mt mt (float wall-x)) (* 2.0 mt t1 mx) (* t1 t1 (float pier-x))))
+               (py  (+ (* mt mt (float wall-y)) (* 2.0 mt t1 my) (* t1 t1 (float pier-y))))
+               (pz  (+ (* mt mt (float wall-z)) (* 2.0 mt t1 mz) (* t1 t1 (float pier-z)))))
+          (push (list (+ px (* ox (float thickness)))
+                      py
+                      (+ pz (* oz (float thickness))))
+                verts))))
+    (setf verts (nreverse verts))
+    (let ((row (1+ steps)))
+      ;; Front arc edges
+      (dotimes (i steps)
+        (push (list i (1+ i)) edges))
+      ;; Back arc edges
+      (dotimes (i steps)
+        (push (list (+ row i) (+ row i 1)) edges))
+      ;; Cross ribs connecting front to back
+      (dotimes (i (1+ steps))
+        (push (list i (+ row i)) edges)))
+    (emit-edges verts (nreverse edges))))

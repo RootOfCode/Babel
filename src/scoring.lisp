@@ -98,6 +98,29 @@
       (min 1.0 (* 0.2 (length (babel-macro-dependencies m))))
       0.0))
 
+(defun score-connectivity (m)
+  "Reward macros whose body explicitly uses wall-segment or arch to
+   connect other structures — a sign of architectural coherence.
+   Also rewards use of shared position variables (let bindings fed to
+   multiple calls), which indicates spatial coordination."
+  (let ((body (babel-macro-body m))
+        (score 0.0))
+    ;; Bonus for wall-segment usage (explicit connectivity)
+    (when (member 'wall-segment (babel-macro-dependencies m))
+      (incf score 0.35))
+    ;; Bonus for arch usage (gate / bridge)
+    (when (member 'arch (babel-macro-dependencies m))
+      (incf score 0.15))
+    ;; Bonus for let-binding shared vars (position coordination)
+    (labels ((count-lets (x)
+               (cond ((and (consp x) (eq (car x) 'let*)) 1)
+                     ((and (consp x) (eq (car x) 'let))  1)
+                     ((consp x) (reduce #'+ (mapcar #'count-lets x)
+                                        :initial-value 0))
+                     (t 0))))
+      (incf score (* 0.1 (min 5 (count-lets body)))))
+    (min 1.0 score)))
+
 ;;; ─── Composite score ────────────────────────────────────────────────────────
 
 (defun score-macro! (m)
@@ -111,11 +134,13 @@
          (s-visual (score-visual-interest verts edges))
          (s-reuse  (score-reusability  m))
          (s-compat (score-compatibility m *babel-registry*))
-         (total    (+ (* 0.20 s-econ)
-                      (* 0.25 s-novel)
-                      (* 0.30 s-visual)
-                      (* 0.15 s-reuse)
-                      (* 0.10 s-compat))))
+         (s-conn   (score-connectivity m))
+         (total    (+ (* 0.18 s-econ)
+                      (* 0.22 s-novel)
+                      (* 0.28 s-visual)
+                      (* 0.14 s-reuse)
+                      (* 0.08 s-compat)
+                      (* 0.10 s-conn))))
     (setf (babel-macro-score m) (float total 1.0))
     total))
 

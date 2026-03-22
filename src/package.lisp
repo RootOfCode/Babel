@@ -5,7 +5,12 @@
   (:export
    ;; ── Entry points ──────────────────────────────────────────────────────────
    #:run
+   #:run-threaded
    #:initialize
+   ;; ── Output directory ──────────────────────────────────────────────────────
+   #:*output-dir*
+   #:set-output-dir!
+   #:babel-out
 
    ;; ── Registry ──────────────────────────────────────────────────────────────
    #:*babel-registry*
@@ -19,6 +24,11 @@
 
    ;; ── Layer-0 macros ────────────────────────────────────────────────────────
    #:box #:sphere #:babel-line #:plane #:cone #:torus #:arch
+   #:wall-segment #:half-dome
+   #:cylinder #:pyramid #:vault #:staircase #:spire #:flying-buttress
+   #:emit-wall-segment-edges #:emit-hemisphere-edges
+   #:emit-cylinder-edges #:emit-pyramid-edges #:emit-vault-edges
+   #:emit-staircase-edges #:emit-spire-edges #:emit-flying-buttress-edges
 
    ;; ── Geometry accumulator ──────────────────────────────────────────────────
    #:*edge-buffer* #:*vertex-buffer*
@@ -29,6 +39,7 @@
 
    ;; ── Scoring / evolution ───────────────────────────────────────────────────
    #:score-macro! #:rescore-all! #:evolve!
+   #:score-connectivity
 
    ;; ── Camera ────────────────────────────────────────────────────────────────
    #:*camera* #:make-camera
@@ -37,6 +48,7 @@
    ;; ── Renderer state ────────────────────────────────────────────────────────
    #:*window-width* #:*window-height*
    #:*geometry-dirty* #:*current-fps*
+   #:*world-mutex*
 
    ;; ── Gizmo toggles ─────────────────────────────────────────────────────────
    #:*show-gizmo* #:*show-origin*
@@ -50,6 +62,10 @@
    #:save-world! #:load-world!
    #:save-session! #:load-session!
    #:world-undo! #:*world-journal*
+   ;; .world / .voc dedicated formats
+   #:save-world-file! #:load-world-file!
+   #:save-vocabulary! #:load-vocabulary!
+   #:*current-world-source*
 
    ;; ── Inspector / REPL ──────────────────────────────────────────────────────
    #:inspect-macro #:print-macro-tree
@@ -57,6 +73,7 @@
    #:macro-geometry-stats #:list-macros-by-layer
    #:validate-all-scenes! #:?
    #:babel-eval #:show-macro
+   #:babel-resolve-sym #:babel-rewrite-forms
 
    ;; ── Colour modes ──────────────────────────────────────────────────────────
    #:*colour-mode* #:*colour-modes*

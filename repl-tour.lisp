@@ -7,8 +7,12 @@
 ;;;;   (ql:quickload :babel-world)
 ;;;;   (babel:initialize)
 ;;;;
-;;;; Then open the window in a background thread:
-;;;;   (bt:make-thread #'babel:run :name "babel-window")
+;;;; IMPORTANT: Do NOT call (babel:run) directly — it blocks the current
+;;;; thread because sdl2:make-this-thread-main takes over the event loop.
+;;;; Use run-threaded instead, which starts the window in a background thread
+;;;; and leaves the REPL free for live evaluation:
+;;;;
+;;;;   (babel:run-threaded)
 ;;;;
 ;;;; Then step through this file in your editor / REPL.
 
@@ -114,10 +118,10 @@
 
 ;; Save the entire AI-grown vocabulary as a plain Lisp source file.
 ;; This file can be loaded in any CL environment — no BABEL runtime needed.
-(export-library "/tmp/babel-library.lisp")
+(babel:export-library (babel:babel-out "babel-library.lisp"))
 
 ;; Verify it's readable
-(with-open-file (f "/tmp/babel-library.lisp")
+(with-open-file (f (babel:babel-out "babel-library.lisp"))
   (loop repeat 20
         for line = (read-line f nil nil)
         while line do (format t "~A~%" line)))

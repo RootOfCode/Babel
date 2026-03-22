@@ -101,15 +101,29 @@ fi
 
 echo ""
 echo "══════════════════════════════════════════"
-echo "  Launching BABEL window…"
-echo "  (Press H in the window for controls)"
+echo "  Launching BABEL…"
+echo ""
+echo "  The window opens in a background thread."
+echo "  Your REPL is free for live evaluation:"
+echo ""
+echo "    (babel:babel-eval (fortress 0.0 0.0 40.0))"
+echo "    (babel:babel-eval (walled-city 0.0 0.0 70.0 0.3))"
+echo ""
+echo "  Press H in the window for key controls."
 echo "══════════════════════════════════════════"
 echo ""
 
 # ─── Launch ───────────────────────────────────────────────────────────────────
+# run-threaded starts SDL2 in a background thread and returns immediately,
+# leaving the REPL free so the user can call babel-eval live.
+# sb-impl::toplevel-repl drops into the interactive REPL; the process stays
+# alive until the user types (quit) or closes the window.
+mkdir -p "$BABEL_DIR/output"
+
 sbcl --noinform \
      --load "$QUICKLISP_INIT" \
      --eval "(ql:register-local-projects)" \
      --eval "(ql:quickload :babel-world :silent t)" \
-     --eval "(babel:initialize)" \
-     --eval "(babel:run)"
+     --eval "(babel:initialize :system-root #p\"$BABEL_DIR/\")" \
+     --eval "(babel:run-threaded)" \
+     --eval "(sb-impl::toplevel-repl nil)"

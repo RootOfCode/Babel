@@ -49,7 +49,35 @@
                               do (let ((GXP (* GX GRID-SPACING))
                                        (GZP (* GZ GRID-SPACING)))
                                    MACRO-CALL-HOLE)))
-     :holes (:GX :GZ :GRID-N :GRID-SPACING :GXP :GZP :MACRO-CALL-HOLE))))
+     :holes (:GX :GZ :GRID-N :GRID-SPACING :GXP :GZP :MACRO-CALL-HOLE))
+
+    ;; PAIRED-SYMMETRIC: same call twice, mirrored on the X axis
+    (paired-symmetric
+     :skeleton (progn CALL-1
+                      (let ((SYM-X (- 0.0 SX-VAR)))
+                        CALL-2))
+     :holes (:CALL-1 :SX-VAR :SYM-X :CALL-2))
+
+    ;; BRIDGED: two macro calls with an explicit wall-segment connecting them.
+    ;; All positions are inline float literals — no shared variables needed.
+    (bridged
+     :skeleton (progn
+                 MACRO-CALL-A
+                 MACRO-CALL-B
+                 (wall-segment BRIDGE-X0 BRIDGE-Z0 BRIDGE-X1 BRIDGE-Z1
+                               0.0 BRIDGE-H BRIDGE-W))
+     :holes (:BRIDGE-X0 :BRIDGE-Z0 :BRIDGE-X1 :BRIDGE-Z1
+             :BRIDGE-H :BRIDGE-W :MACRO-CALL-A :MACRO-CALL-B))
+
+    ;; FOUR-CORNERS: four independent macro calls at symmetric corner positions.
+    ;; Each call gets its own independently generated arguments.
+    (four-corners
+     :skeleton (progn
+                 CORNER-CALL-A
+                 CORNER-CALL-B
+                 CORNER-CALL-C
+                 CORNER-CALL-D)
+     :holes (:CORNER-CALL-A :CORNER-CALL-B :CORNER-CALL-C :CORNER-CALL-D))))
 
 ;;; ─── Helper: weighted random sampling ──────────────────────────────────────
 
@@ -102,6 +130,29 @@
                  (random-float-in 5.0 25.0))
                 ((or (search "density" pname) (search "taper" pname))
                  (random-float-in 0.1 0.5))
+                ;; wall-segment specific — x0/z0 and x1/z1 should form a span
+                ((or (search "x0" pname) (search "z0" pname))
+                 (random-float-in -25.0 -5.0))
+                ((or (search "x1" pname) (search "z1" pname))
+                 (random-float-in 5.0 25.0))
+                ((or (search "y-base" pname) (search "ybase" pname))
+                 0.0)
+                ((search "thickness" pname)
+                 (random-float-in 0.5 2.5))
+                ;; New primitives
+                ((or (search "n-steps" pname) (search "sides" pname))
+                 (float (+ 4 (random 10)) 1.0))
+                ((search "step-h" pname)
+                 (random-float-in 0.3 1.2))
+                ((search "step-d" pname)
+                 (random-float-in 0.5 1.5))
+                ((search "base-r" pname)
+                 (random-float-in 1.5 8.0))
+                ((or (search "span" pname) (search "base-w" pname)
+                     (search "base-d" pname))
+                 (random-float-in 5.0 20.0))
+                ((search "pier" pname)
+                 (random-float-in -20.0 20.0))
                 ((or (search "x" pname) (search "z" pname)
                      (search "cx" pname) (search "cz" pname))
                  (random-float-in -20.0 20.0))
@@ -131,7 +182,37 @@
          (setf (gethash h bindings) (random-float-in 1.0 12.0)))
         ((:Y-BASE-EXPR :BIND-EXPR)
          (setf (gethash h bindings) (random-float-in 0.0 5.0)))
-        ((:MACRO-CALL-HOLE :CALL-1 :CALL-2 :BODY-CALL)
+        ;; Bridged template holes
+        ((:B-X0-EXPR :B-Z0-EXPR)
+         (setf (gethash h bindings) (random-float-in -30.0 -5.0)))
+        ((:B-X1-EXPR :B-Z1-EXPR)
+         (setf (gethash h bindings) (random-float-in 5.0 30.0)))
+        ((:B-WALL-H)
+         (setf (gethash h bindings) (random-float-in 4.0 12.0)))
+        ((:B-WALL-W)
+         (setf (gethash h bindings) (random-float-in 0.8 2.5)))
+        ;; Paired-symmetric holes
+        ((:SX-VAR)
+         (setf (gethash h bindings) (random-float-in 5.0 25.0)))
+        ;; Four-corners holes
+        ((:FC-SIZE-EXPR)
+         (setf (gethash h bindings) (random-float-in 8.0 30.0)))
+        ;; Unique variable names for paired-symmetric
+        ((:SYM-X)
+         (setf (gethash h bindings) (make-unique-var h)))
+        ;; Bridged template: inline float endpoints for wall-segment
+        ((:BRIDGE-X0 :BRIDGE-Z0)
+         (setf (gethash h bindings) (random-float-in -30.0 -5.0)))
+        ((:BRIDGE-X1 :BRIDGE-Z1)
+         (setf (gethash h bindings) (random-float-in 5.0 30.0)))
+        ((:BRIDGE-H)
+         (setf (gethash h bindings) (random-float-in 4.0 12.0)))
+        ((:BRIDGE-W)
+         (setf (gethash h bindings) (random-float-in 0.8 2.5)))
+        ;; All hole types that generate a macro call
+        ((:MACRO-CALL-HOLE :CALL-1 :CALL-2 :BODY-CALL
+          :MACRO-CALL-A :MACRO-CALL-B
+          :CORNER-CALL-A :CORNER-CALL-B :CORNER-CALL-C :CORNER-CALL-D)
          (let* ((candidates (or available-macros
                                  (macros-up-to-layer layer)))
                 (m          (weighted-sample candidates
@@ -342,19 +423,33 @@
 (defun install-handcrafted-layer2! ()
   "Install Layer-2 macros."
 
-  ;; BATTLEMENT
-  (let* ((body '(progn
-                  (box x (+ y (/ wall-h 2)) z wall-len wall-h wall-w)
-                  (colonnade (- x (/ wall-len 2)) z wall-len crenels
-                             (* wall-w 0.3) (* wall-h 0.6))))
+  ;; BATTLEMENT — a solid wall with merlons on top.
+  ;; X Y Z = centre of wall base (Y is ground level, not offset).
+  ;; wall-len = length along the wall's primary axis (interpret as X for
+  ;;   N/S walls, or flip W/D for E/W walls — see FORTRESS).
+  ;; wall-w = wall thickness.  wall-h = total height incl. merlons.
+  ;; crenels = number of merlons along the parapet.
+  (let* ((body '(let* ((base-h  (* wall-h 0.72))
+                       (m-h     (* wall-h 0.28))
+                       (m-w     (/ wall-len (float (* 2 crenels))))
+                       (spacing (/ wall-len (float crenels))))
+                  ;; Solid wall base from y to y+base-h
+                  (box x (+ y (/ base-h 2.0)) z wall-len base-h wall-w)
+                  ;; Merlons (every other gap)
+                  (loop for i from 0 below crenels
+                        for mx = (+ (- x (/ wall-len 2.0))
+                                    (* (+ i 0.5) spacing))
+                        do (box mx
+                                (+ y base-h (/ m-h 2.0))
+                                z m-w m-h wall-w))))
          (m (make-babel-macro
              :name 'battlement :layer 2
              :params '(x y z wall-len wall-w wall-h crenels)
              :body body
-             :dependencies '(box colonnade)
+             :dependencies '(box)
              :complexity (tree-depth body)
-             :score 0.80 :usage-count 0 :invented-at 0
-             :doc "Parapet wall with crenel gaps.")))
+             :score 0.82 :usage-count 0 :invented-at 0
+             :doc "Solid wall with merlons (crenellated parapet).")))
     (register-macro! m))
 
   ;; KEEP
@@ -377,28 +472,43 @@
 (defun install-handcrafted-layer3! ()
   "Install Layer-3 macros."
 
-  ;; FORTRESS
-  (let* ((body '(let* ((half  (/ size 2.0))
-                       (wall-y 4.0)
-                       (wall-h 3.0))
-                  (progn
-                    (keep (- cx half) (- cz half) 2.0 6)
-                    (keep (+ cx half) (- cz half) 2.0 6)
-                    (keep (- cx half) (+ cz half) 2.0 6)
-                    (keep (+ cx half) (+ cz half) 2.0 6)
-                    (battlement cx wall-y (- cz half) size 0.8 wall-h 12)
-                    (battlement cx wall-y (+ cz half) size 0.8 wall-h 12)
-                    (battlement (- cx half) wall-y cz size 0.8 wall-h 12)
-                    (battlement (+ cx half) wall-y cz size 0.8 wall-h 12)
-                    (arch cx 0.0 (- cz half) 4.0 3.0 1.5 :roman))))
+  ;; FORTRESS — four corner keeps with full-height connected walls.
+  ;; wall-segment is used for E/W walls so they run along Z correctly.
+  ;; battlement is used for N/S walls (runs along X by convention).
+  (let* ((body '(let* ((half    (/ size 2.0))
+                       (keep-r  2.5)
+                       (keep-fl 6)
+                       (wall-h  (* keep-fl 3.5 0.55))   ; ~55% keep height
+                       (wall-w  1.5))
+                  ;; ── Corner keeps ────────────────────────────────────
+                  (keep (- cx half) (- cz half) keep-r keep-fl)
+                  (keep (+ cx half) (- cz half) keep-r keep-fl)
+                  (keep (- cx half) (+ cz half) keep-r keep-fl)
+                  (keep (+ cx half) (+ cz half) keep-r keep-fl)
+                  ;; ── N/S walls — run along X, use battlement ─────────
+                  ;; South wall (z = cz-half), crenels face outward
+                  (battlement cx 0.0 (- cz half) size wall-w wall-h 10)
+                  ;; North wall
+                  (battlement cx 0.0 (+ cz half) size wall-w wall-h 10)
+                  ;; ── E/W walls — run along Z, use wall-segment ────────
+                  ;; West wall
+                  (wall-segment (- cx half) (- cz half)
+                                (- cx half) (+ cz half)
+                                0.0 wall-h wall-w)
+                  ;; East wall
+                  (wall-segment (+ cx half) (- cz half)
+                                (+ cx half) (+ cz half)
+                                0.0 wall-h wall-w)
+                  ;; ── Gate arch in south wall ──────────────────────────
+                  (arch cx 0.0 (- cz half) 4.5 4.0 wall-w :gothic)))
          (m (make-babel-macro
              :name 'fortress :layer 3
              :params '(cx cz size)
              :body body
-             :dependencies '(keep battlement arch)
+             :dependencies '(keep battlement wall-segment arch)
              :complexity (tree-depth body)
-             :score 0.90 :usage-count 0 :invented-at 0
-             :doc "Full fortress: four corner keeps, connecting walls, gate arch.")))
+             :score 0.92 :usage-count 0 :invented-at 0
+             :doc "Four corner keeps with full-height connected walls and gate arch.")))
     (register-macro! m))
 
   (format t "~&[BABEL] Layer 3 (hand-crafted) complete.~%"))

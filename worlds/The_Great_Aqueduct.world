@@ -1,0 +1,39 @@
+(babel:babel-eval
+  (plane 0.0 0.0 500.0 500.0 0.0)
+
+  ;; Main vault channel — span=8 so r=4, sides at y+4=18, crown at y+8=22
+  ;; y=14 so vault sides rest exactly on pylon tops (height 18)
+  (vault 0.0 14.0 -90.0  8.0 180.0 12)
+
+  ;; Cylinder pylons every 20 units — base y=0, top y=18
+  (loop for pz in '(-80.0 -60.0 -40.0 -20.0 0.0 20.0 40.0 60.0 80.0)
+        do (cylinder  0.0 0.0 pz  3.0 18.0 12))
+
+  ;; Flying buttresses bracing every other pylon
+  (loop for pz in '(-80.0 -40.0 0.0 40.0 80.0)
+        do (flying-buttress  4.0 18.0 pz   14.0 2.0 pz  1.5)
+           (flying-buttress -4.0 18.0 pz  -14.0 2.0 pz  1.5))
+
+  ;; Pier bases for buttresses
+  (loop for pz in '(-80.0 -40.0 0.0 40.0 80.0)
+        do (cylinder  14.0 0.0 pz  1.8 8.0 8)
+           (cylinder -14.0 0.0 pz  1.8 8.0 8))
+
+  ;; Staircase at south end — 9 steps × 2h × 2d = rises 18 over 18 depth
+  (staircase -4.0 0.0 -108.0  8.0 9 2.0 2.0)
+  ;; Staircase at north end — faces opposite direction so start at +90+18=108,
+  ;; we flip by building it going back toward -Z by reversing step-d sign:
+  ;; Instead, mirror: staircase at z=+108, going further +Z
+  (staircase -4.0 0.0 90.0  8.0 9 2.0 2.0)
+
+  ;; Retaining walls flanking both staircases
+  (wall-segment  4.0 -108.0   4.0  -90.0  0.0 18.0 1.2)
+  (wall-segment -4.0 -108.0  -4.0  -90.0  0.0 18.0 1.2)
+  (wall-segment  4.0  90.0    4.0  108.0  0.0 18.0 1.2)
+  (wall-segment -4.0  90.0   -4.0  108.0  0.0 18.0 1.2)
+
+  ;; Terminus buildings at each end — low arched hall with spire
+  (arch 0.0 0.0 -92.0  10.0 8.0 2.0 :roman)
+  (arch 0.0 0.0  92.0  10.0 8.0 2.0 :roman)
+  (spire  0.0 14.0 -94.0  12.0 3.5 8)
+  (spire  0.0 14.0  94.0  12.0 3.5 8))

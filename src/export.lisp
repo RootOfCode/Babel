@@ -9,7 +9,7 @@
 
 ;;; ─── Wavefront OBJ ───────────────────────────────────────────────────────────
 
-(defun export-obj! (&optional (path "/tmp/babel-world.obj"))
+(defun export-obj! (&optional (path (babel-out "babel-world.obj")))
   "Export the current scene as a Wavefront OBJ file.
    Edges are written as 'l' (line) elements.
    Load in Blender with: File → Import → Wavefront (.obj)"
@@ -56,7 +56,7 @@
        (list (+ offset-x (* scale (- x z)))
              (+ offset-y (* scale (+ (* 0.5 (- x z)) (- y)))))))))
 
-(defun export-svg! (&optional (path "/tmp/babel-world.svg")
+(defun export-svg! (&optional (path (babel-out "babel-world.svg"))
                     &key (mode :iso) (scale 2.0) (width 1200) (height 800))
   "Export the current scene as an SVG wireframe.
    MODE: :top :front :side :iso (default)."
@@ -90,7 +90,7 @@
           (format t "~&[BABEL] SVG exported → ~A  (~A projection)~%"
                   path mode)))))
 
-(defun export-svg-quad! (&optional (path "/tmp/babel-quad.svg"))
+(defun export-svg-quad! (&optional (path (babel-out "babel-quad.svg")))
   "Export four-view SVG: top, front, side, and isometric."
   (let ((verts *cached-verts*)
         (edges *cached-edges*))
@@ -136,7 +136,7 @@
 
 ;;; ─── EDN export (Clojure-compatible data) ────────────────────────────────────
 
-(defun export-edn! (&optional (path "/tmp/babel-world.edn"))
+(defun export-edn! (&optional (path (babel-out "babel-world.edn")))
   "Export geometry as EDN — readable by Clojure, babashka, and many tools."
   (let ((verts *cached-verts*)
         (edges *cached-edges*))
@@ -157,7 +157,7 @@
 
 ;;; ─── Combined export shortcut ────────────────────────────────────────────────
 
-(defun export-all! (&optional (dir "/tmp/babel-export/"))
+(defun export-all! (&optional (dir (babel-out "babel-export/")))
   "Export the current scene to OBJ + SVG (quad) + EDN in DIR."
   (ensure-directories-exist dir)
   (export-obj!       (merge-pathnames "world.obj"      dir))

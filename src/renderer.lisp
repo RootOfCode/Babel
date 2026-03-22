@@ -14,6 +14,8 @@
 (defparameter *window-title*  "BABEL — The Lisp Macro World Compiler")
 
 (defvar *world-fn*        nil  "Thunk that populates *edge-buffer*.")
+(defvar *world-mutex*     (bt:make-lock "world-mutex")
+  "Protects *world-fn* and *geometry-dirty* for safe cross-thread updates.")
 (defvar *cached-verts*    #()  "Last rendered vertex array.")
 (defvar *cached-edges*    #()  "Last rendered edge array.")
 (defvar *geometry-dirty*  t    "Recompute geometry on next frame?")
@@ -36,16 +38,19 @@
 ;;; ─── Geometry rebuild ────────────────────────────────────────────────────────
 
 (defun rebuild-geometry! ()
-  "Re-run *world-fn* to fill geometry buffers and cache the arrays."
-  (when *world-fn*
-    (clear-geometry!)
-    (handler-case (funcall *world-fn*)
-      (error (e)
-        (format t "~&[BABEL] World eval error: ~A~%" e)))
-    (multiple-value-bind (v e) (collect-geometry)
-      (setf *cached-verts*   v
-            *cached-edges*   e
-            *geometry-dirty* nil))))
+  "Re-run *world-fn* to fill geometry buffers and cache the arrays.
+   Holds *world-mutex* so a concurrent run-world call from the REPL
+   thread cannot swap *world-fn* mid-rebuild."
+  (bt:with-lock-held (*world-mutex*)
+    (when *world-fn*
+      (clear-geometry!)
+      (handler-case (funcall *world-fn*)
+        (error (e)
+          (format t "~&[BABEL] World eval error: ~A~%" e)))
+      (multiple-value-bind (v e) (collect-geometry)
+        (setf *cached-verts*   v
+              *cached-edges*   e
+              *geometry-dirty* nil)))))
 
 ;;; ─── OpenGL rendering ────────────────────────────────────────────────────────
 
@@ -118,7 +123,7 @@
    Pure Lisp — no cffi memcpy, no SDL surface required."
   (declare (ignore win))
   (let* ((ts    (get-universal-time))
-         (path  (format nil "/tmp/babel-~A.ppm" ts))
+         (path  (namestring (babel-out (format nil "babel-~A.ppm" ts))))
          (w     *window-width*)
          (h     *window-height*)
          (total (* w h 3)))
@@ -228,7 +233,12 @@
             (setf *geometry-dirty* t))
            ;; S = save library
            ((sdl2:scancode= key :scancode-s)
-            (export-library "/tmp/babel-library.lisp"))
+            (export-library (babel-out "babel-library.lisp")))
+           ;; P = save current world as .world file
+           ((sdl2:scancode= key :scancode-p)
+            (let ((path (babel-out "babel-world.world")))
+              (save-world-file! path "quicksave")
+              (format t "~&[BABEL] World → ~A~%" path)))
            ;; F12 = screenshot
            ((sdl2:scancode= key :scancode-f12)
             (take-screenshot win))
