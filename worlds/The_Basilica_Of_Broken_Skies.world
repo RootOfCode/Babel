@@ -1,0 +1,99 @@
+(babel:babel-eval
+  (plane 0.0 0.0 400.0 400.0 0.0)
+
+  ;; ════════════════════════════════════════════════
+  ;; BELL TOWERS — front corners, outside the nave
+  ;; ════════════════════════════════════════════════
+  (tower -18.0 -54.0 14 3.0 0.05)
+  (tower  18.0 -54.0 14 3.0 0.05)
+
+  ;; ════════════════════════════════════════════════
+  ;; NAVE — x: -13 to +13, z: -50 to -9
+  ;; ════════════════════════════════════════════════
+  ;; Side walls
+  (wall-segment -13.0 -50.0 -13.0 -9.0  0.0 20.0 1.5)
+  (wall-segment  13.0 -50.0  13.0 -9.0  0.0 20.0 1.5)
+  ;; Front wall: gap x=-5 to x=+5 for the portal
+  (wall-segment -13.0 -50.0  -5.0 -50.0  0.0 20.0 1.5)
+  (wall-segment   5.0 -50.0  13.0 -50.0  0.0 20.0 1.5)
+  ;; Portal arch over the door gap
+  (arch 0.0 0.0 -50.0 10.0 12.0 1.5 :gothic)
+
+  ;; Nave interior: 4 pairs of pillars + spanning arches
+  (loop for pz in '(-43.0 -35.0 -27.0 -19.0)
+        do (box -10.0 10.0 pz 2.0 20.0 2.0)
+           (box  10.0 10.0 pz 2.0 20.0 2.0)
+           (arch 0.0 20.0 pz 20.0 6.0 1.0 :gothic))
+
+  ;; Nave clerestory windows: box frames high on side walls
+  (loop for pz in '(-43.0 -35.0 -27.0 -19.0)
+        do (box -13.5 16.5 pz 1.0 5.0 4.0)
+           (box  13.5 16.5 pz 1.0 5.0 4.0))
+
+  ;; Nave buttresses on outside
+  (loop for pz in '(-43.0 -35.0 -27.0 -19.0)
+        do (box -16.5 5.0 pz 4.0 10.0 3.5)
+           (box  16.5 5.0 pz 4.0 10.0 3.5))
+
+  ;; Pitched roof over nave
+  (loop for pz in '(-50.0 -43.0 -35.0 -27.0 -19.0 -11.0 -9.0)
+        do (babel-line -13.0 20.0 pz  0.0 25.0 pz)
+           (babel-line  13.0 20.0 pz  0.0 25.0 pz))
+  (babel-line -13.0 20.0 -50.0 -13.0 20.0 -9.0)
+  (babel-line  13.0 20.0 -50.0  13.0 20.0 -9.0)
+  (babel-line   0.0 25.0 -50.0   0.0 25.0 -9.0)
+
+  ;; ════════════════════════════════════════════════
+  ;; CROSSING — dome above, 4 heavy piers
+  ;; ════════════════════════════════════════════════
+  (box -11.0 11.0 -9.0  2.5 22.0 2.5)
+  (box  11.0 11.0 -9.0  2.5 22.0 2.5)
+  (box -11.0 11.0  9.0  2.5 22.0 2.5)
+  (box  11.0 11.0  9.0  2.5 22.0 2.5)
+  (half-dome 0.0 22.0 0.0 14.0 14)
+
+  ;; Crossing arches between piers
+  (arch 0.0 22.0 -9.0 22.0 5.0 1.0 :gothic)
+  (arch 0.0 22.0  9.0 22.0 5.0 1.0 :gothic)
+
+  ;; ════════════════════════════════════════════════
+  ;; TRANSEPTS — z: -9 to +9, x: ±13 to ±38
+  ;; ════════════════════════════════════════════════
+  (wall-segment -13.0 -9.0 -38.0 -9.0  0.0 16.0 1.5)
+  (wall-segment -13.0  9.0 -38.0  9.0  0.0 16.0 1.5)
+  (wall-segment -38.0 -9.0 -38.0  9.0  0.0 16.0 1.5)
+
+  (wall-segment  13.0 -9.0  38.0 -9.0  0.0 16.0 1.5)
+  (wall-segment  13.0  9.0  38.0  9.0  0.0 16.0 1.5)
+  (wall-segment  38.0 -9.0  38.0  9.0  0.0 16.0 1.5)
+
+  ;; Transept end windows (box frames — arch can't rotate 90°)
+  (box -38.5 10.0 0.0  1.0 8.0 10.0)
+  (box  38.5 10.0 0.0  1.0 8.0 10.0)
+
+  ;; Transept roofs
+  (loop for px in '(-14.0 -22.0 -30.0 -38.0)
+        do (babel-line px 16.0 -9.0  px 16.0  9.0)
+           (babel-line px 16.0 -9.0  px 20.0  0.0)
+           (babel-line px 16.0  9.0  px 20.0  0.0))
+
+  ;; ════════════════════════════════════════════════
+  ;; APSE — straight walls then 6-segment semicircle
+  ;; ════════════════════════════════════════════════
+  (wall-segment -13.0  9.0 -13.0 22.0  0.0 16.0 1.5)
+  (wall-segment  13.0  9.0  13.0 22.0  0.0 16.0 1.5)
+
+  ;; Semicircular apse wall: center (0, 22) radius 14 in XZ
+  (loop for i from 0 below 6
+        for a0 = (* pi (/ i 6.0))
+        for a1 = (* pi (/ (+ i 1.0) 6.0))
+        do (wall-segment
+              (* 14.0 (cos a0)) (+ 22.0 (* 14.0 (sin a0)))
+              (* 14.0 (cos a1)) (+ 22.0 (* 14.0 (sin a1)))
+              0.0 16.0 1.5))
+
+  ;; Apse roof
+  (loop for i from 0 below 7
+        for a = (* pi (/ i 6.0))
+        do (babel-line (* 13.0 (cos a)) 16.0 (+ 22.0 (* 13.0 (sin a)))
+                       0.0 21.0 22.0)))

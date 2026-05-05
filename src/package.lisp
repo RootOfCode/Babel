@@ -48,7 +48,15 @@
    ;; ── Renderer state ────────────────────────────────────────────────────────
    #:*window-width* #:*window-height*
    #:*geometry-dirty* #:*current-fps*
-   #:*world-mutex*
+   #:*world-mutex* #:*show-grid* #:*wire-line-width* #:cycle-wire-line-width!
+
+   ;; ── GUI overlay ───────────────────────────────────────────────────────────
+   #:*ui-enabled* #:*ui-show-help* #:*ui-show-code* #:*ui-show-stats* #:*ui-theme*
+   #:draw-ui! #:ui-message! #:ui-cycle-theme! #:ui-camera-fit! #:ui-save-code-buffer!
+   #:ui-handle-key #:ui-handle-text-input #:ui-handle-mouse-wheel #:ui-handle-mouse-down
+   #:ui-handle-mouse-up #:ui-handle-mouse-motion
+   #:ui-load-code-for-current-scene! #:ui-apply-code-editor!
+   #:ui-code-copy! #:ui-code-paste! #:ui-import-code! #:ui-code-select-all! #:ui-code-cut! #:ui-hot-reload-check!
 
    ;; ── Gizmo toggles ─────────────────────────────────────────────────────────
    #:*show-gizmo* #:*show-origin*
@@ -56,7 +64,7 @@
    ;; ── World helpers ─────────────────────────────────────────────────────────
    #:world #:run-world
    #:set-scene! #:next-scene! #:prev-scene!
-   #:*scenes* #:*current-scene*
+   #:*scenes* #:*current-scene* #:scene-code-snippet #:scene-code-function
 
    ;; ── Persistence ───────────────────────────────────────────────────────────
    #:save-world! #:load-world!

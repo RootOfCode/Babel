@@ -29,6 +29,26 @@
 ;;; Active scene index (for demo cycling)
 (defvar *current-scene*   0)
 
+;;; Visual display options controlled by the in-window GUI.
+(defvar *show-grid* t
+  "When true, draw the ground reference grid behind the world geometry.")
+
+(defparameter *wire-line-widths* '(1.0 1.4 2.1 3.0)
+  "Line thickness presets for the wireframe renderer.")
+
+(defvar *wire-line-width* 1.4
+  "Current OpenGL line width for world geometry edges.")
+
+(defun cycle-wire-line-width! ()
+  "Cycle through comfortable wireframe thickness presets."
+  (let* ((pos (position *wire-line-width* *wire-line-widths* :test #'=))
+         (next (nth (mod (1+ (or pos 0)) (length *wire-line-widths*))
+                    *wire-line-widths*)))
+    (setf *wire-line-width* next)
+    (when (fboundp 'ui-message!)
+      (ui-message! "Wire width: ~,1F" next))
+    next))
+
 ;;; FPS tracking
 (defvar *frame-count*     0)
 (defvar *last-fps-time*   0)
@@ -74,8 +94,8 @@
                  (length *cached-edges*)
                  *current-fps*
                  (hash-table-count *babel-registry*)))))))
-(defun render-frame ()
-  "Draw the current geometry into the SDL/GL context."
+(defun render-frame (win width height)
+  "Draw the current geometry and GUI into the SDL/GL context."
   ;; ── Delta-time for animated colour modes ────────────────────────────────────
   (let* ((now (get-internal-real-time))
          (dt  (if (zerop *last-frame-time*) 0.016
@@ -87,13 +107,14 @@
   (gl:clear-color 0.05 0.05 0.08 1.0)
   (gl:clear :color-buffer-bit :depth-buffer-bit)
   ;; ── Ground grid ─────────────────────────────────────────────────────────────
-  (gl:line-width 1.0)
-  (gl:begin :lines)
-  (gl:color 0.10 0.10 0.15)
-  (loop for i from -200 to 200 by 10 do
-    (gl:vertex (float i) 0.0 -200.0) (gl:vertex (float i) 0.0  200.0)
-    (gl:vertex -200.0 0.0 (float i)) (gl:vertex  200.0 0.0 (float i)))
-  (gl:end)
+  (when *show-grid*
+    (gl:line-width 1.0)
+    (gl:begin :lines)
+    (gl:color 0.10 0.10 0.15)
+    (loop for i from -200 to 200 by 10 do
+      (gl:vertex (float i) 0.0 -200.0) (gl:vertex (float i) 0.0  200.0)
+      (gl:vertex -200.0 0.0 (float i)) (gl:vertex  200.0 0.0 (float i)))
+    (gl:end))
   ;; ── World geometry ───────────────────────────────────────────────────────────
   (let ((verts *cached-verts*)
         (edges *cached-edges*))
@@ -101,7 +122,7 @@
       (let* ((ys    (map 'vector #'second verts))
              (y-min (reduce #'min ys))
              (y-max (reduce #'max ys)))
-        (gl:line-width 1.4)
+        (gl:line-width *wire-line-width*)
         (gl:begin :lines)
         (loop for edge across edges do
           (let* ((i  (first  edge))
@@ -114,7 +135,9 @@
             (gl:vertex (first v1) (second v1) (third v1))))
         (gl:end))))
   ;; ── Overlay: gizmo + reference circles ──────────────────────────────────────
-  (draw-gizmo-overlay))
+  (draw-gizmo-overlay)
+  ;; ── In-window GUI overlay ───────────────────────────────────────────────────
+  (draw-ui! win width height))
 
 ;;; ─── Screenshot (portable PPM) ──────────────────────────────────────────────
 
@@ -157,28 +180,13 @@
   (gl:line-width 1.2)
   (apply-camera *camera* width height))
 
-;;; ─── HUD: print current scene info ──────────────────────────────────────────
+;;; ─── GUI status/help trigger ────────────────────────────────────────────────
 
 (defun print-hud ()
-  (format t "~&╔══════════════════════════════════════════════════════╗~%")
-  (format t "║  BABEL HUD                                           ║~%")
-  (format t "╠══════════════════════════════════════════════════════╣~%")
-  (format t "║  Scene  ~2D/~2D  │  ~5D verts  │  ~5D edges          ║~%"
-          *current-scene* (1- (length *scenes*))
-          (length *cached-verts*) (length *cached-edges*))
-  (format t "║  Macros ~4D   │  FPS ~5,1f    │  Colour: ~A~20T ║~%"
-          (hash-table-count *babel-registry*)
-          (float *current-fps*)
-          *colour-mode*)
-  (format t "╠══════════════════════════════════════════════════════╣~%")
-  (format t "║  MOUSE    LMB=orbit  RMB=pan  scroll=zoom            ║~%")
-  (format t "║  CAMERA   R=reset  IJKL=pan  ←/→=scene cycle        ║~%")
-  (format t "║  SCENES   1-9=scenes 0-8   0=scene 9   F1=scene 10  ║~%")
-  (format t "║  DISPLAY  C=colour(~A)  X=gizmo  O=rings~28T          ║~%" *colour-mode*)
-  (format t "║  GROW     G=invent-layer  E=evolve                   ║~%")
-  (format t "║  SAVE     S=lib  W=OBJ  V=SVG  F12=screenshot        ║~%")
-  (format t "║  OTHER    Z=undo  H=hud  ESC=quit                    ║~%")
-  (format t "╚══════════════════════════════════════════════════════╝~%"))
+  "Show the in-window help/status GUI instead of printing a terminal HUD."
+  (setf *ui-show-help* t
+        *ui-enabled* t)
+  (ui-message! "GUI HUD enabled"))
 
 ;;; ─── Main event loop ─────────────────────────────────────────────────────────
 
@@ -193,7 +201,8 @@
       (:keydown (:keysym keysym)
        (let ((key (sdl2:scancode-value keysym))
              (camera-dirty nil))
-         (cond
+         (unless (ui-handle-key key)
+           (cond
            ;; ESC = quit
            ((sdl2:scancode= key :scancode-escape)
             (sdl2:push-quit-event))
@@ -218,14 +227,13 @@
            ((sdl2:scancode= key :scancode-right) (next-scene!))
            ;; G = grow next AI layer (in background thread)
            ((sdl2:scancode= key :scancode-g)
-            (let ((next-layer
-                   (1+ (loop for v being the hash-values of *babel-registry*
-                             maximize (babel-macro-layer v)))))
-              (format t "~&[BABEL] Spawning inventor for layer ~D…~%" next-layer)
+            (let ((next-layer (ui-next-layer-index)))
+              (ui-message! "Inventing layer ~D..." next-layer)
               (bordeaux-threads:make-thread
                (lambda ()
                  (invent-layer! next-layer 20 4)
-                 (setf *geometry-dirty* t))
+                 (setf *geometry-dirty* t)
+                 (ui-message! "Layer ~D complete" next-layer))
                :name "babel-inventor")))
            ;; E = evolve
            ((sdl2:scancode= key :scancode-e)
@@ -261,7 +269,7 @@
            ;; Z = undo last world change
            ((sdl2:scancode= key :scancode-z)
             (world-undo!))
-           ;; H = HUD
+           ;; H = in-window help/status
            ((sdl2:scancode= key :scancode-h)
             (print-hud))
            ;; IJKL pan
@@ -272,46 +280,57 @@
            ((sdl2:scancode= key :scancode-j)
             (camera-pan! *camera* -5  0) (setf camera-dirty t))
            ((sdl2:scancode= key :scancode-l)
-            (camera-pan! *camera*  5  0) (setf camera-dirty t)))
+            (camera-pan! *camera*  5  0) (setf camera-dirty t))))
          (when camera-dirty
            (apply-camera *camera* width height))))
 
-      (:mousebuttondown (:button button :x x :y y)
-       (cond
-         ((= button 1)   ; SDL_BUTTON_LEFT
-          (setf *mouse-left-down* t *mouse-last-x* x *mouse-last-y* y))
-         ((= button 3)   ; SDL_BUTTON_RIGHT
-          (setf *mouse-right-down* t *mouse-last-x* x *mouse-last-y* y))))
+      (:textinput (:text text)
+       (ui-handle-text-input text))
 
-      (:mousebuttonup (:button button)
+      (:mousebuttondown (:button button :x x :y y)
+       (unless (ui-handle-mouse-down x y win)
+         (cond
+           ((= button 1)   ; SDL_BUTTON_LEFT
+            (setf *mouse-left-down* t *mouse-last-x* x *mouse-last-y* y))
+           ((= button 3)   ; SDL_BUTTON_RIGHT
+            (setf *mouse-right-down* t *mouse-last-x* x *mouse-last-y* y)))))
+
+      (:mousebuttonup (:button button :x x :y y)
+       (ui-handle-mouse-up x y)
        (cond
          ((= button 1) (setf *mouse-left-down* nil))
          ((= button 3) (setf *mouse-right-down* nil))))
 
       (:mousemotion (:x x :y y)
-       (let ((dx (- x *mouse-last-x*))
-             (dy (- y *mouse-last-y*)))
-         (cond
-           (*mouse-left-down*
-            (camera-orbit! *camera* dx dy))
-           (*mouse-right-down*
-            (camera-pan! *camera* (- dx) dy)))
-         (setf *mouse-last-x* x *mouse-last-y* y)
-         (apply-camera *camera* width height)))
+       (ui-handle-mouse-motion x y)
+       (unless *ui-mouse-captured*
+         (let ((dx (- x *mouse-last-x*))
+               (dy (- y *mouse-last-y*)))
+           (cond
+             (*mouse-left-down*
+              (camera-orbit! *camera* dx dy))
+             (*mouse-right-down*
+              (camera-pan! *camera* (- dx) dy)))
+           (setf *mouse-last-x* x *mouse-last-y* y)
+           (apply-camera *camera* width height))))
 
       (:mousewheel (:y y)
-       (camera-zoom! *camera* (float y))
-       (apply-camera *camera* width height))
+       (unless (ui-handle-mouse-wheel y)
+         (camera-zoom! *camera* (float y))
+         (apply-camera *camera* width height)))
 
       (:windowevent (:event event :data1 d1 :data2 d2)
        ;; SDL_WINDOWEVENT_RESIZED = 5
        (when (= event 5)
-         (setf width  d1 height d2)
+         (setf width d1
+               height d2
+               *window-width* d1
+               *window-height* d2)
          (gl:viewport 0 0 width height)
          (apply-camera *camera* width height)))
 
       (:idle ()
-       (render-frame)
+       (render-frame win width height)
        (update-fps! win)
        (sdl2:gl-swap-window win)))))
 

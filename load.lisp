@@ -22,8 +22,8 @@
       (dolist (file '("package" "geometry" "registry" "layer0"
                       "inventor" "scoring" "evolution"
                       "camera" "gizmo" "colour" "terrain"
-                      "renderer" "persistence" "worlds" "export"
-                      "inspector" "main"))
+                      "renderer" "persistence" "worlds" "scene-source" "export"
+                      "inspector" "ui" "main"))
         (format t "~&; Loading ~A…~%" file)
         (load (src file)))))
   (format t "~&; BABEL loaded. Call (babel:initialize) then (babel:run).~%"))

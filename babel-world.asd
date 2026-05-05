@@ -13,7 +13,7 @@
   :version "0.1.0"
   :author "Bruno"
   :license "MIT"
-  :depends-on (:sdl2 :cl-opengl :cl-glu :alexandria :bordeaux-threads)
+  :depends-on (:sdl2 :cl-opengl :cl-glu :alexandria :bordeaux-threads :cffi :uiop)
   :serial t
   :components
   ((:module "src"
@@ -33,6 +33,9 @@
      (:file "renderer")
      (:file "persistence")
      (:file "worlds")
+     (:file "scene-source")
      (:file "export")
      (:file "inspector")
+     (:file "font8x8")
+     (:file "ui")
      (:file "main")))))

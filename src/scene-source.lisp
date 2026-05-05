@@ -1,27 +1,16 @@
-;;;; src/worlds.lisp
-;;;; Pre-built world programs and the WORLD macro.
-;;;; Each world-fn is a thunk that populates the geometry buffers.
+;;;; src/scene-source.lisp
+;;;; Source text shown in the in-window Structure Code editor.
+;;;; Generated from src/worlds.lisp so the GUI can show the Lisp program
+;;;; behind each built-in structure without depending on terminal output.
 
 (in-package #:babel)
 
-;;; ─── WORLD macro ─────────────────────────────────────────────────────────────
+(defparameter *scene-code-snippets*
+  (vector
+   ";; Built-in scene 0: Layer-0 Sampler
+;; Click scene 0 or evaluate a similar structure.
 
-(defmacro world ((&key (seed 42)) &body forms)
-  "Evaluate FORMS with a deterministic random state seeded by SEED.
-   Uses sb-ext:seed-random-state on SBCL; on other implementations
-   creates a fresh state (non-deterministic but still isolated)."
-  `(let ((*random-state*
-          #+sbcl (sb-ext:seed-random-state ,seed)
-          #-sbcl (make-random-state t)))
-     ,@forms))
-
-;;; ─── Scene catalogue ─────────────────────────────────────────────────────────
-
-(defparameter *scenes*
-  (list
-
-   ;; ── Scene 0: Layer-0 sampler ──────────────────────────────────────────────
-   (cons "Layer-0 Sampler"
+(cons \"Layer-0 Sampler\"
     (lambda ()
       (world (:seed 1)
         (box     0.0  2.5  0.0  5.0 5.0 5.0)
@@ -32,20 +21,22 @@
         (arch    -25.0 0.0  0.0  8.0 5.0 2.0 :roman)
         (arch     25.0 0.0  0.0  8.0 5.0 2.0 :gothic)
         (babel-line -30.0 0.0 -30.0 30.0 0.0 30.0)
-        (babel-line  30.0 0.0 -30.0 -30.0 0.0 30.0))))
+        (babel-line  30.0 0.0 -30.0 -30.0 0.0 30.0))))"
+   ";; Built-in scene 1: Tower Row (Layer 1)
+;; Click scene 1 or evaluate a similar structure.
 
-   ;; ── Scene 1: Tower row (Layer 1) ─────────────────────────────────────────
-   (cons "Tower Row (Layer 1)"
+(cons \"Tower Row (Layer 1)\"
     (lambda ()
       (world (:seed 2)
         (plane 0.0 0.0 80.0 80.0 0.0)
         (loop for x from -30 to 30 by 15
               for floors = (+ 3 (random 5))
               do (tower (float x) 0.0 floors 2.0 0.15))
-        (dome   0.0 0.0 20.0 6.0 8))))
+        (dome   0.0 0.0 20.0 6.0 8))))"
+   ";; Built-in scene 2: Fortress (Layer 3)
+;; Click scene 2 or evaluate a similar structure.
 
-   ;; ── Scene 2: Fortress (Layer 3) ──────────────────────────────────────────
-   (cons "Fortress (Layer 3)"
+(cons \"Fortress (Layer 3)\"
     (lambda ()
       (world (:seed 7)
         (plane 0.0 0.0 120.0 120.0 0.0)
@@ -53,10 +44,11 @@
         ;; A few outbuildings
         (dome   25.0 0.0 25.0 5.0 8)
         (colonnade -15.0 0.0 10.0 5 0.8 8.0)
-        (torus  0.0 20.0 0.0 8.0 1.0 16))))
+        (torus  0.0 20.0 0.0 8.0 1.0 16))))"
+   ";; Built-in scene 3: Walled City (Layer 4)
+;; Click scene 3 or evaluate a similar structure.
 
-   ;; ── Scene 3: Walled City (Layer 4) ───────────────────────────────────────
-   (cons "Walled City (Layer 4)"
+(cons \"Walled City (Layer 4)\"
     (lambda ()
       (world (:seed 77)
         (plane 0.0 0.0 200.0 200.0 0.0)
@@ -70,10 +62,11 @@
         (colonnade  0.0 0.0 120.0 13 0.6 12.0)
         ;; Domes
         (dome  0.0 0.0  0.0 10.0 12)
-        (dome 40.0 0.0 40.0  6.0  8))))
+        (dome 40.0 0.0 40.0  6.0  8))))"
+   ";; Built-in scene 4: Towers of Babel (Abstract)
+;; Click scene 4 or evaluate a similar structure.
 
-   ;; ── Scene 4: Abstract Towers of Babel ────────────────────────────────────
-   (cons "Towers of Babel (Abstract)"
+(cons \"Towers of Babel (Abstract)\"
     (lambda ()
       (world (:seed 99)
         (plane 0.0 0.0 150.0 150.0 0.0)
@@ -92,10 +85,11 @@
         (loop for i from 0 below 4
               for angle = (* 0.5 pi i)
               do (arch (* 55.0 (cos angle)) 0.0 (* 55.0 (sin angle))
-                       10.0 7.0 2.5 :gothic)))))
+                       10.0 7.0 2.5 :gothic)))))"
+   ";; Built-in scene 5: Orbital Ring Stations
+;; Click scene 5 or evaluate a similar structure.
 
-   ;; ── Scene 5: Orbital Ring Stations ───────────────────────────────────────
-   (cons "Orbital Ring Stations"
+(cons \"Orbital Ring Stations\"
     (lambda ()
       (world (:seed 512)
         ;; Three concentric rings of structures
@@ -116,10 +110,11 @@
         (dome 0.0 0.0 0.0 14.0 12)
         (loop for angle in (list 0.0 (/ pi 2) pi (* 3 (/ pi 2)))
               do (arch (* 85.0 (cos angle)) 0.0 (* 85.0 (sin angle))
-                       12.0 9.0 3.0 :gothic)))))
+                       12.0 9.0 3.0 :gothic)))))"
+   ";; Built-in scene 6: Cave / Strata Cross-Section
+;; Click scene 6 or evaluate a similar structure.
 
-   ;; ── Scene 6: Cave / Geological Strata ────────────────────────────────────
-   (cons "Cave / Strata Cross-Section"
+(cons \"Cave / Strata Cross-Section\"
     (lambda ()
       (world (:seed 333)
         ;; Surface grid
@@ -143,10 +138,11 @@
         ;; Underground fortress
         (fortress 0.0 -20.0 30.0)
         ;; Sphere void
-        (sphere 15.0 -15.0 10.0 8.0 8))))
+        (sphere 15.0 -15.0 10.0 8.0 8))))"
+   ";; Built-in scene 7: Terrain Landscape
+;; Click scene 7 or evaluate a similar structure.
 
-   ;; ── Scene 7: Terrain Landscape ────────────────────────────────────────────
-   (cons "Terrain Landscape"
+(cons \"Terrain Landscape\"
     (lambda ()
       (world (:seed 888)
         ;; Terrain amplitude 5 — gentle rolling hills, max 5 units tall.
@@ -163,10 +159,11 @@
         (colonnade  35.0  0.0 60.0 8 0.4 8.0)
         (colonnade -35.0  0.0 60.0 8 0.4 8.0)
         ;; Dome at the centre
-        (dome 0.0 0.0 0.0 10.0 10))))
+        (dome 0.0 0.0 0.0 10.0 10))))"
+   ";; Built-in scene 8: Grand Cathedral
+;; Click scene 8 or evaluate a similar structure.
 
-   ;; ── Scene 8: Grand Cathedral ──────────────────────────────────────────────
-   (cons "Grand Cathedral"
+(cons \"Grand Cathedral\"
     (lambda ()
       (world (:seed 42)
         ;; Ground plane
@@ -203,10 +200,11 @@
         (battlement  0.0 0.0  70.0 80.0 1.0 2.5 20)
         (battlement  0.0 0.0 -70.0 80.0 1.0 2.5 20)
         (battlement -40.0 0.0  0.0 80.0 1.0 2.5 20)
-        (battlement  40.0 0.0  0.0 80.0 1.0 2.5 20))))
+        (battlement  40.0 0.0  0.0 80.0 1.0 2.5 20))))"
+   ";; Built-in scene 9: Amphitheatre
+;; Click scene 9 or evaluate a similar structure.
 
-   ;; ── Scene 9: Amphitheatre ─────────────────────────────────────────────────
-   (cons "Amphitheatre"
+(cons \"Amphitheatre\"
     (lambda ()
       (world (:seed 234)
         (plane 0.0 0.0 250.0 250.0 0.0)
@@ -240,10 +238,11 @@
               do (babel-line (* r (cos a0)) 6.0 (* r (sin a0))
                              (* r (cos a1)) 6.0 (* r (sin a1)))
                  (babel-line (* r (cos a0)) 0.0 (* r (sin a0))
-                             (* r (cos a0)) 6.0 (* r (sin a0)))))))
+                             (* r (cos a0)) 6.0 (* r (sin a0)))))))"
+   ";; Built-in scene 10: Procedural City Grid
+;; Click scene 10 or evaluate a similar structure.
 
-   ;; ── Scene 10: Procedural City Grid ────────────────────────────────────────
-   (cons "Procedural City Grid"
+(cons \"Procedural City Grid\"
     (lambda ()
       (world (:seed 1001)
         (plane 0.0 0.0 300.0 300.0 0.0)
@@ -280,48 +279,40 @@
         (battlement   0.0 0.0  130.0 280.0 1.5 4.0 28)
         (battlement   0.0 0.0 -130.0 280.0 1.5 4.0 28)
         (battlement  130.0 0.0   0.0 280.0 1.5 4.0 28)
-        (battlement -130.0 0.0   0.0 280.0 1.5 4.0 28))))
-
+        (battlement -130.0 0.0   0.0 280.0 1.5 4.0 28))))"
    ))
 
-;;; ─── Scene switching ─────────────────────────────────────────────────────────
+(defun scene-code-snippet (index)
+  "Return a displayable source snippet for a built-in scene index."
+  (when (and (integerp index)
+             (<= 0 index)
+             (< index (length *scene-code-snippets*)))
+    (aref *scene-code-snippets* index)))
 
-(defun set-scene! (index)
-  "Activate scene INDEX (wraps around)."
-  (let* ((n (length *scenes*))
-         (i (mod index n))
-         (entry (nth i *scenes*)))
-    (setf *current-scene* i
-          *world-fn*       (or (and (fboundp 'scene-code-function)
-                                    (scene-code-function i))
-                               (cdr entry))
-          *current-world-source* nil
-          *geometry-dirty* t)
-    (when (fboundp 'ui-load-code-for-current-scene!)
-      (ui-load-code-for-current-scene! :force t))
-    (when (fboundp 'ui-message!)
-      (ui-message! "Scene ~D: ~A" i (car entry)))))
+(defun read-scene-code-forms (source)
+  "Read all Lisp forms from a scene-code string in the BABEL package."
+  (let ((*package* (find-package :babel))
+        (forms '()))
+    (with-input-from-string (in source)
+      (loop for form = (read in nil :eof)
+            until (eq form :eof) do
+              (push form forms)))
+    (nreverse forms)))
 
-;;; ─── Custom world helper ─────────────────────────────────────────────────────
-
-(defun next-scene! ()
-  (set-scene! (1+ *current-scene*)))
-
-(defun prev-scene! ()
-  (set-scene! (1- *current-scene*)))
-
-(defun run-world (fn)
-  "Evaluate FN (a thunk) as the current world and mark geometry dirty.
-   The previous world-fn is pushed onto *world-journal* for undo.
-   Thread-safe: acquires *world-mutex* before swapping *world-fn* so the
-   renderer thread never sees a half-updated state."
-  (bt:with-lock-held (*world-mutex*)
-    (when *world-fn*
-      (journal-push! *world-fn*))
-    (setf *world-fn*       fn
-          *geometry-dirty* t
-          *current-scene*  -1))
-  (when (fboundp 'ui-load-code-for-current-scene!)
-    (ui-load-code-for-current-scene! :force t))
-  (when (fboundp 'ui-message!)
-    (ui-message! "Custom world installed")))
+(defun scene-code-function (index)
+  "Compile the visible scene-code snippet into the function used by the main view.
+This keeps the Structure Code editor and the 3D object synchronized."
+  (let ((source (scene-code-snippet index)))
+    (when source
+      (handler-case
+          (let* ((forms (read-scene-code-forms source))
+                 (result (and forms (eval (first forms)))))
+            (cond
+              ((functionp result)
+               result)
+              ((and (consp result) (functionp (cdr result)))
+               (cdr result))
+              (t nil)))
+        (error (e)
+          (format t "~&[BABEL] Could not compile scene code for scene ~D: ~A~%" index e)
+          nil)))))

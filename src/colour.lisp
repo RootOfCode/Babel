@@ -43,7 +43,8 @@
          (next (nth (mod (1+ (or pos 0)) (length *colour-modes*))
                     *colour-modes*)))
     (setf *colour-mode* next)
-    (format t "~&[BABEL] Colour mode: ~A~%" next)))
+    (when (fboundp 'ui-message!)
+      (ui-message! "Colour mode: ~A" next))))
 
 ;;; ─── Per-vertex colour ───────────────────────────────────────────────────────
 
